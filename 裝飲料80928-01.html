@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>APCS o711 互動裝飲料模擬器</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f8ff; }
+        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; text-align: center; }
+        .inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; align-items: flex-start; }
+        
+        /* 水杯視覺設計 */
+        #cup-container {
+            position: relative;
+            width: 200px;
+            height: 300px;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+        }
+        .cup-tier {
+            border: 3px solid #333;
+            border-top: none;
+            position: relative;
+            background: rgba(255,255,255,0.5);
+            transition: height 0.3s;
+        }
+        #tier1 { width: 100px; height: 100px; border-top: 1px dashed #ccc; } /* 下層 */
+        #tier2 { width: 60px; height: 80px; } /* 上層 */
+        
+        /* 飲料液體 */
+        .water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background-color: #ffcc00; /* 飲料顏色 */
+            transition: height 0.5s ease-out;
+        }
+        
+        .stats { margin-top: 20px; padding: 10px; background: #eee; border-radius: 5px; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+        .highlight { color: #d9534f; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>裝飲料模擬器 (APCS o711)</h1>
+    
+    <div class="container">
+        <div class="inputs">
+            <div class="input-group">
+                <label>下層寬度 (w1):</label>
+                <input type="number" id="w1" value="10" min="1">
+            </div>
+            <div class="input-group">
+                <label>下層高度 (h1):</label>
+                <input type="number" id="h1" value="10" min="1">
+            </div>
+            <div class="input-group">
+                <label>上層寬度 (w2):</label>
+                <input type="number" id="w2" value="6" min="1">
+            </div>
+            <div class="input-group">
+                <label>上層高度 (h2):</label>
+                <input type="number" id="h2" value="8" min="1">
+            </div>
+        </div>
+
+        <div class="input-group" style="width: 100%; margin-bottom: 10px;">
+            <label>每次倒多少體積 (v):</label>
+            <input type="number" id="v" value="200" style="width: 90%;">
+        </div>
+
+        <button onclick="pourDrink()">倒飲料！</button>
+        <button onclick="resetCup()" style="background:#6c757d;">重置</button>
+
+        <div id="cup-container">
+            <!-- 下層 -->
+            <div id="tier1" class="cup-tier">
+                <div id="water1" class="water" style="height: 0%;"></div>
+            </div>
+            <!-- 上層 -->
+            <div id="tier2" class="cup-tier">
+                <div id="water2" class="water" style="height: 0%;"></div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <p>目前總高度: <span id="current-h">0</span> cm</p>
+            <p>本次上升高度: <span id="last-inc">0</span> cm</p>
+            <p class="highlight">最大上升變化量: <span id="max-inc">0</span> cm</p>
+        </div>
+    </div>
+
+    <script>
+        let currentTotalVolume = 0;
+        let currentTotalHeight = 0;
+        let maxIncrement = 0;
+
+        function pourDrink() {
+            const w1 = parseFloat(document.getElementById('w1').value);
+            const h1 = parseFloat(document.getElementById('h1').value);
+            const w2 = parseFloat(document.getElementById('w2').value);
+            const h2 = parseFloat(document.getElementById('h2').value);
+            const v = parseFloat(document.getElementById('v').value);
+
+            // 更新視覺化杯子大小
+            document.getElementById('tier1').style.width = (w1 * 10) + 'px';
+            document.getElementById('tier1').style.height = (h1 * 10) + 'px';
+            document.getElementById('tier2').style.width = (w2 * 10) + 'px';
+            document.getElementById('tier2').style.height = (h2 * 10) + 'px';
+
+            const cap1 = w1 * w1 * h1; // 下層總容量
+            const cap2 = w2 * w2 * h2; // 上層總容量
+            const totalCap = cap1 + cap2;
+
+            const oldHeight = currentTotalHeight;
+            currentTotalVolume = Math.min(currentTotalVolume + v, totalCap);
+
+            // 計算新高度
+            let newHeight = 0;
+            if (currentTotalVolume <= cap1) {
+                newHeight = currentTotalVolume / (w1 * w1);
+            } else {
+                newHeight = h1 + (currentTotalVolume - cap1) / (w2 * w2);
+            }
+
+            const increment = newHeight - oldHeight;
+            if (increment > maxIncrement) maxIncrement = increment;
+            
+            currentTotalHeight = newHeight;
+
+            // 更新 UI
+            updateWaterVisual(newHeight, h1, h2);
+            document.getElementById('current-h').innerText = newHeight.toFixed(2);
+            document.getElementById('last-inc').innerText = increment.toFixed(2);
+            document.getElementById('max-inc').innerText = maxIncrement.toFixed(2);
+        }
+
+        function updateWaterVisual(totalH, h1, h2) {
+            const water1 = document.getElementById('water1');
+            const water2 = document.getElementById('water2');
+
+            if (totalH <= h1) {
+                water1.style.height = (totalH / h1 * 100) + '%';
+                water2.style.height = '0%';
+            } else {
+                water1.style.height = '100%';
+                water2.style.height = ((totalH - h1) / h2 * 100) + '%';
+            }
+        }
+
+        function resetCup() {
+            currentTotalVolume = 0;
+            currentTotalHeight = 0;
+            maxIncrement = 0;
+            document.getElementById('water1').style.height = '0%';
+            document.getElementById('water2').style.height = '0%';
+            document.getElementById('current-h').innerText = '0';
+            document.getElementById('last-inc').innerText = '0';
+            document.getElementById('max-inc').innerText = '0';
+        }
+    </script>
+</body>
+</html>
